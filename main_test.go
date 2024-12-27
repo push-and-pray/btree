@@ -70,6 +70,8 @@ func TestBTreeGet(t *testing.T) {
 		{97, "97", true},
 		{101, "101", true},
 		{696969, "", false},
+		{1, "", false},
+		{72, "", false},
 	}
 
 	for _, test := range tests {
@@ -124,7 +126,7 @@ func BenchmarkBTreeGetLayer3(b *testing.B) {
 func BenchmarkBTreeGetNonExisting(b *testing.B) {
 	btree := newPopulatedBTree()
 
-	keys := []int{696969, 123456, 999999, 1}
+	keys := []int{696969, 1, 72}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -132,10 +134,4 @@ func BenchmarkBTreeGetNonExisting(b *testing.B) {
 			btree.Get(key)
 		}
 	}
-}
-
-func TestDebug(t *testing.T) {
-	btree := newPopulatedBTree()
-	btree.Add(42, "42")
-	println(btree.String())
 }

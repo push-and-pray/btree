@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -39,63 +40,38 @@ func (btree *BTree[K, V]) newNode() Node[K, V] {
 }
 
 func (btree *BTree[K, V]) Get(k K) (V, bool) {
-	node := btree.root
-	assert(func() bool { return node != nil }, "Empty BTree encountered!")
+	return btree.get(k, btree.root)
+}
 
-nodeTraversalLoop:
-	for {
-		for idx, elm := range node.elements {
-			switch cmp.Compare(k, elm.key) {
-			case 0:
-				return elm.value, true
-			case -1:
-				assert(func() bool { return len(node.children) > idx && idx >= 0 }, "Attempted illegal traversel")
-				node = node.children[idx]
-				continue nodeTraversalLoop
-			}
-		}
-		if len(node.children) == 0 {
-			var ZeroVal V
-			return ZeroVal, false
-		}
-		assert(func() bool { return len(node.children) > len(node.elements) && len(node.elements) >= 0 }, "Attempted illegal traversel")
-		node = node.children[len(node.elements)]
+func (btree *BTree[K, V]) get(k K, root *Node[K, V]) (V, bool) {
+	idx := sort.Search(len(root.elements), func(i int) bool { return root.elements[i].key >= k })
+
+	if idx < len(root.elements) && root.elements[idx].key == k {
+		return root.elements[idx].value, true
 	}
+
+	if len(root.children) == 0 {
+		var zeroVal V
+		return zeroVal, false
+	}
+
+	return btree.get(k, root.children[idx])
+
 }
 
 func (btree *BTree[K, V]) Add(k K, v V) {
 	node := btree.root
-	assert(func() bool { return node != nil }, "Empty BTree encountered!")
+	assert(func() bool { return node != nil },
+		"Empty BTree root encountered!")
 
-	// Find correct leaf to insert key at
-nodeTraversalLoop:
-	for {
-		if len(node.children) == 0 {
-			break nodeTraversalLoop
-		}
+	if len(node.elements) > btree.max {
+		// newRoot := Node[K, V]{children: []*Node[K, V]{node}}
 
-		for idx, elm := range node.elements {
-			switch cmp.Compare(k, elm.key) {
-			case 0:
-				// Return early if we find a matching key
-				node.elements[idx].value = v
-				return
-			case -1:
-				assert(func() bool { return len(node.children) > idx && idx >= 0 }, "Attempted illegal traversel")
-				node = node.children[idx]
-				continue nodeTraversalLoop
-			}
-		}
-
-		assert(func() bool { return len(node.children) > len(node.elements) && len(node.elements) >= 0 }, "Attempted illegal traversel")
-		node = node.children[len(node.elements)]
 	}
-
-	// If there is space in the node, insert it, while keeping order
-	if len(node.elements) < btree.max {
-		node.elements, _ = btree.insertOrdered(node.elements, k, v)
-		return
-	}
+}
+func (btree *BTree[K, V]) splitChild(parent *Node[K, V], index int) {
+	//child := parent.children[index]
+	//newNode := &Node[K, V]{}
 
 }
 
