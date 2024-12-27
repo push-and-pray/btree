@@ -21,14 +21,20 @@ type Element[K cmp.Ordered, V any] struct {
 	value V
 }
 
-func NewBtree[K cmp.Ordered, V any](max int) *BTree[K, V] {
-
-	return &BTree[K, V]{
+func NewBtree[K cmp.Ordered, V any](max int) BTree[K, V] {
+	return BTree[K, V]{
 		max: max,
 		root: &Node[K, V]{
-			children: []*Node[K, V]{},
-			elements: []Element[K, V]{},
+			children: make([]*Node[K, V], 0, max+1),
+			elements: make([]Element[K, V], 0, max),
 		},
+	}
+}
+
+func (btree *BTree[K, V]) newNode() Node[K, V] {
+	return Node[K, V]{
+		children: make([]*Node[K, V], 0, btree.max+1),
+		elements: make([]Element[K, V], 0, btree.max),
 	}
 }
 
