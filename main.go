@@ -3,7 +3,6 @@ package main
 import (
 	"cmp"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -88,10 +87,7 @@ nodeTraversalLoop:
 
 	// If there is space in the node, insert it, while keeping order
 	if len(node.elements) < btree.max {
-		index := sort.Search(len(node.elements), func(i int) bool {
-			return node.elements[i].key >= k
-		})
-		node.elements = append(node.elements[:index], append([]Element[K, V]{{k, v}}, node.elements[index:]...)...)
+		node.elements, _ = btree.insertOrdered(node.elements, k, v)
 		return
 	}
 
