@@ -1,100 +1,96 @@
 package main
 
 import (
-	"reflect"
 	"testing"
 )
 
-func TestInsertOrdered(t *testing.T) {
-	btree := &BTree[int, string]{}
-
-	tests := []struct {
-		name     string
-		slice    []Element[int, string]
-		k        int
-		v        string
-		expected []Element[int, string]
-	}{
-		{
-			name:     "insert into empty slice",
-			slice:    []Element[int, string]{},
-			k:        1,
-			v:        "a",
-			expected: []Element[int, string]{{1, "a"}},
-		},
-		{
-			name:     "insert into beginning",
-			slice:    []Element[int, string]{{2, "b"}, {3, "c"}},
-			k:        1,
-			v:        "a",
-			expected: []Element[int, string]{{1, "a"}, {2, "b"}, {3, "c"}},
-		},
-		{
-			name:     "insert into middle",
-			slice:    []Element[int, string]{{1, "a"}, {3, "c"}},
-			k:        2,
-			v:        "b",
-			expected: []Element[int, string]{{1, "a"}, {2, "b"}, {3, "c"}},
-		},
-		{
-			name:     "insert into end",
-			slice:    []Element[int, string]{{1, "a"}, {2, "b"}},
-			k:        3,
-			v:        "c",
-			expected: []Element[int, string]{{1, "a"}, {2, "b"}, {3, "c"}},
-		},
+func TestFind(t *testing.T) {
+	items := items[int, string]{
+		{key: 1, value: "one"},
+		{key: 3, value: "three"},
+		{key: 5, value: "five"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, _ := btree.insertOrdered(tt.slice, tt.k, tt.v)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
+	tests := []struct {
+		key      int
+		expected int
+		found    bool
+	}{
+		{key: 0, expected: 0, found: false},
+		{key: 1, expected: 0, found: true},
+		{key: 2, expected: 1, found: false},
+		{key: 3, expected: 1, found: true},
+		{key: 4, expected: 2, found: false},
+		{key: 5, expected: 2, found: true},
+		{key: 6, expected: 3, found: false},
+	}
+
+	for _, test := range tests {
+		idx, found := items.find(test.key)
+		if idx != test.expected || found != test.found {
+			t.Errorf("find(%d) = (%d, %v); expected (%d, %v)", test.key, idx, found, test.expected, test.found)
+		}
 	}
 }
 
-func BenchmarkInsertOrdered(b *testing.B) {
-	btree := &BTree[int, string]{}
+func TestInsertAt(t *testing.T) {
+	testItems := items[int, string]{
+		{key: 1, value: "one"},
+		{key: 3, value: "three"},
+		{key: 4, value: "four"},
+	}
 
-	benchmarks := []struct {
-		name  string
-		slice []Element[int, string]
-		k     int
-		v     string
+	tests := []struct {
+		key      int
+		value    string
+		index    int
+		expected items[int, string]
 	}{
 		{
-			name:  "insert into empty slice",
-			slice: []Element[int, string]{},
-			k:     1,
-			v:     "a",
+			key:   2,
+			value: "two",
+			index: 1,
+			expected: items[int, string]{
+				{key: 1, value: "one"},
+				{key: 2, value: "two"},
+				{key: 3, value: "three"},
+				{key: 4, value: "four"},
+			},
 		},
 		{
-			name:  "insert into beginning",
-			slice: []Element[int, string]{{2, "b"}, {3, "c"}},
-			k:     1,
-			v:     "a",
+			key:   5,
+			value: "five",
+			index: 4,
+			expected: items[int, string]{
+				{key: 1, value: "one"},
+				{key: 2, value: "two"},
+				{key: 3, value: "three"},
+				{key: 4, value: "four"},
+				{key: 5, value: "five"},
+			},
 		},
 		{
-			name:  "insert into middle",
-			slice: []Element[int, string]{{1, "a"}, {3, "c"}},
-			k:     2,
-			v:     "b",
-		},
-		{
-			name:  "insert into end",
-			slice: []Element[int, string]{{1, "a"}, {2, "b"}},
-			k:     3,
-			v:     "c",
+			key:   0,
+			value: "zero",
+			index: 0,
+			expected: items[int, string]{
+				{key: 0, value: "zero"},
+				{key: 1, value: "one"},
+				{key: 2, value: "two"},
+				{key: 3, value: "three"},
+				{key: 4, value: "four"},
+				{key: 5, value: "five"},
+			},
 		},
 	}
 
-	for _, bm := range benchmarks {
-		b.Run(bm.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				btree.insertOrdered(bm.slice, bm.k, bm.v)
+	for _, test := range tests {
+		testItems.insertAt(test.key, test.value, test.index)
+		for i, item := range testItems {
+			if item.key != test.expected[i].key || item.value != test.expected[i].value {
+				t.Errorf("insertAt(%d, %s, %d) = %v; expected %v", test.key, test.value, test.index, testItems, test.expected)
+				break
 			}
-		})
+		}
 	}
 }
