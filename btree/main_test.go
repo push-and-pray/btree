@@ -146,11 +146,11 @@ func TestBTreeGet(t *testing.T) {
 	}
 }
 
-func TestBTreeInsert(t *testing.T) {
+func TestBTreeRandomInserts(t *testing.T) {
 	r := rand.NewPCG(424242, 1024)
 	random := rand.New(r)
 
-	randomInserts := 1000
+	randomInserts := 100000
 
 	type testInput struct {
 		key   int
@@ -161,19 +161,31 @@ func TestBTreeInsert(t *testing.T) {
 
 	for range randomInserts {
 		key := random.IntN(1000)
-		test1 := testInput{key, strconv.Itoa(key)}
+		value := random.IntN(1000)
+		test1 := testInput{key, strconv.Itoa(value)}
 		randomInputs = append(randomInputs, test1)
 	}
 
-	btree := NewBtree[int, string](3)
-	t.Run("Random inserts", func(t *testing.T) {
+	for i := 2; i < 10; i++ {
 
-		for _, test := range randomInputs {
-			btree.Add(test.key, test.value)
-			btree.checkTreeValid(btree.root, t)
-			btree.hasValidDepth(t)
-		}
-	})
+		btree := NewBtree[int, string](i)
+		t.Run("Random inserts", func(t *testing.T) {
+
+			for _, test := range randomInputs {
+				btree.Add(test.key, test.value)
+				btree.checkTreeValid(btree.root, t)
+				btree.hasValidDepth(t)
+
+				val, found := btree.Get(test.key)
+				if !found {
+					t.Errorf("Key dissapeared, expected: %v, got nothing D:", test.value)
+				}
+				if !(val == test.value) {
+					t.Errorf("Unexpected value returned: expected: %v, got: %v", test.value, val)
+				}
+			}
+		})
+	}
 }
 
 func BenchmarkBTreeGetLayer1(b *testing.B) {
