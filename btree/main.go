@@ -1,4 +1,4 @@
-package main
+package btree
 
 import (
 	"cmp"
@@ -144,9 +144,5 @@ func (btree *BTree[K, V]) Add(k K, v V) {
 	}
 
 	btree.add(k, v, btree.root)
-
-}
-
-func main() {
 
 }
