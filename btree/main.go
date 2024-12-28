@@ -49,10 +49,6 @@ func (btree *BTree[K, V]) newNode() *Node[K, V] {
 	}
 }
 
-/*
-Splits Node n at item index i. Return the split item and the new node
-*/
-
 func (btree *BTree[K, V]) Get(k K) (V, bool) {
 	return btree.get(k, btree.root)
 }
