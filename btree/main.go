@@ -5,20 +5,20 @@ import (
 )
 
 type BTree[K cmp.Ordered, V any] struct {
-	degree int // 2
+	degree int
 	root   *Node[K, V]
 }
 
 func (btree *BTree[K, V]) minItems() int {
-	return btree.degree - 1 // 1
+	return btree.degree - 1
 }
 
 func (btree *BTree[K, V]) maxItems() int {
-	return btree.degree*2 - 1 // 3
+	return btree.degree*2 - 1
 }
 
 func (btree *BTree[K, V]) maxChildren() int {
-	return btree.maxItems() + 1 // 4
+	return btree.maxItems() + 1
 }
 
 type children[K cmp.Ordered, V any] []*Node[K, V]
@@ -107,8 +107,8 @@ func (btree *BTree[K, V]) add(k K, v V, n *Node[K, V]) {
 		n.items.insertAt(medianItem.key, medianItem.value, idx)
 		n.children.insertAt(newNode, idx+1)
 
+		// New insertion might change our traversal direction, or pull up the key we are looking for
 		inTree := n.items[idx]
-
 		switch cmp.Compare(k, inTree.key) {
 		case -1:
 			break
