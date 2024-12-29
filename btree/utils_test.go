@@ -94,3 +94,93 @@ func TestInsertAt(t *testing.T) {
 		}
 	}
 }
+func TestDeleteAt(t *testing.T) {
+	testItems := items[int, string]{
+		{key: 1, value: "one"},
+		{key: 2, value: "two"},
+		{key: 3, value: "three"},
+		{key: 4, value: "four"},
+	}
+
+	tests := []struct {
+		index    int
+		expected items[int, string]
+	}{
+		{
+			index: 1,
+			expected: items[int, string]{
+				{key: 1, value: "one"},
+				{key: 3, value: "three"},
+				{key: 4, value: "four"},
+			},
+		},
+		{
+			index: 0,
+			expected: items[int, string]{
+				{key: 3, value: "three"},
+				{key: 4, value: "four"},
+			},
+		},
+		{
+			index: 1,
+			expected: items[int, string]{
+				{key: 3, value: "three"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		testItems.deleteAt(test.index)
+		if len(testItems) != len(test.expected) {
+			t.Errorf("deleteAt(%d) = %v; expected %v", test.index, testItems, test.expected)
+			continue
+		}
+		for i, item := range testItems {
+			if item.key != test.expected[i].key || item.value != test.expected[i].value {
+				t.Errorf("deleteAt(%d) = %v; expected %v", test.index, testItems, test.expected)
+				break
+			}
+		}
+	}
+}
+
+func TestDeleteAtChildren(t *testing.T) {
+	child1 := &Node[int, string]{}
+	child2 := &Node[int, string]{}
+	child3 := &Node[int, string]{}
+	child4 := &Node[int, string]{}
+
+	testChildren := children[int, string]{child1, child2, child3, child4}
+
+	tests := []struct {
+		index    int
+		expected children[int, string]
+	}{
+		{
+			index:    1,
+			expected: children[int, string]{child1, child3, child4},
+		},
+		{
+			index:    0,
+			expected: children[int, string]{child3, child4},
+		},
+		{
+			index:    1,
+			expected: children[int, string]{child3},
+		},
+	}
+
+	for _, test := range tests {
+		testChildren.deleteAt(test.index)
+		if len(testChildren) != len(test.expected) {
+			t.Errorf("deleteAt(%d) = %v; expected %v", test.index, testChildren, test.expected)
+			continue
+		}
+		for i, child := range testChildren {
+			if child != test.expected[i] {
+				t.Errorf("deleteAt(%d) = %v; expected %v", test.index, testChildren, test.expected)
+				break
+			}
+		}
+	}
+}

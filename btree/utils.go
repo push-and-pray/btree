@@ -40,6 +40,14 @@ func (s *children[K, V]) insertAt(node *Node[K, V], i int) {
 	(*s)[i] = node
 }
 
+func (s *items[K, V]) deleteAt(i int) {
+	*s = append((*s)[:i], (*s)[i+1:]...)
+}
+
+func (s *children[K, V]) deleteAt(i int) {
+	*s = append((*s)[:i], (*s)[i+1:]...)
+}
+
 func (btree *BTree[K, V]) String() string {
 	var sb strings.Builder
 	btree.stringHelper(btree.root, 0, &sb)
