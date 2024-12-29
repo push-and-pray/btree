@@ -14,26 +14,26 @@ func (btree *BTree[K, V]) checkTreeValid(node *Node[K, V], t *testing.T) {
 	isRoot := btree.root == node
 
 	if len(node.children) > btree.maxChildren() {
-		t.Errorf("Node has too many children: %+v", *node)
+		t.Fatalf("Node has too many children: %+v", *node)
 	}
 
 	if len(node.items) < btree.minItems() && !isRoot {
-		t.Errorf("Node has too few items: %+v", *node)
+		t.Fatalf("Node has too few items: %+v", *node)
 	}
 
 	if len(node.items) > btree.maxItems() {
-		t.Errorf("Node has too many keys: %+v", *node)
+		t.Fatalf("Node has too many keys: %+v", *node)
 	}
 
 	isItemsSorted := slices.IsSortedFunc(node.items, func(a Item[K, V], b Item[K, V]) int {
 		return cmp.Compare(a.key, b.key)
 	})
 	if !isItemsSorted {
-		t.Errorf("Items of node are not sorted: %+v", *node)
+		t.Fatalf("Items of node are not sorted: %+v", *node)
 	}
 
 	if !node.hasValidKeyChildRatio() && !isLeaf && !isRoot {
-		t.Errorf("Node doesn't have valid number of children vs items: %+v", *node)
+		t.Fatalf("Node doesn't have valid number of children vs items: %+v", *node)
 	}
 
 	for _, child := range node.children {
