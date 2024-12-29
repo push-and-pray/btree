@@ -88,57 +88,57 @@ func (btree *BTree[K, V]) split(n *Node[K, V]) (Item[K, V], *Node[K, V]) {
 	return splitItem, newNode
 }
 
-func (btree *BTree[K, V]) insert(k K, v V, n *Node[K, V]) {
-	idx, found := n.items.find(k)
-
-	if found {
-		n.items[idx].value = v
-		return
-	}
-
-	if len(n.children) == 0 {
-		n.items.insertAt(k, v, idx)
-		return
-	}
-
-	// Split the child which we are traversing towards, if necessary
-	if len(n.children[idx].items) >= btree.maxItems() {
-		medianItem, newNode := btree.split(n.children[idx])
-		n.items.insertAt(medianItem.key, medianItem.value, idx)
-		n.children.insertAt(newNode, idx+1)
-
-		// New insertion might change our traversal direction, or pull up the key we are looking for
-		inTree := n.items[idx]
-		switch cmp.Compare(k, inTree.key) {
-		case -1:
-			break
-		case 1:
-			idx++
-		case 0:
-			n.items[idx].value = v
-			return
-		}
-
-	}
-	btree.insert(k, v, n.children[idx])
-}
-
 func (btree *BTree[K, V]) Insert(k K, v V) {
-
 	if btree.root == nil {
 		btree.root = btree.newNode()
 		btree.root.items = append(btree.root.items, Item[K, V]{k, v})
 		return
 	}
 
-	if len(btree.root.items) >= btree.maxItems() {
-		medianItem, newNode := btree.split(btree.root)
-		oldRoot := btree.root
-		btree.root = btree.newNode()
-		btree.root.items = append(btree.root.items, medianItem)
-		btree.root.children = append(btree.root.children, oldRoot, newNode)
+	promotedItem, splitNode, promoted := btree.insert(k, v, btree.root)
+	if !promoted {
+		return
 	}
 
-	btree.insert(k, v, btree.root)
+	newRoot := btree.newNode()
+	newRoot.items = append(newRoot.items, promotedItem)
+	newRoot.children = append(newRoot.children, btree.root, splitNode)
+	btree.root = newRoot
+
+}
+
+func (btree *BTree[K, V]) insert(k K, v V, node *Node[K, V]) (Item[K, V], *Node[K, V], bool) {
+	idx, found := node.items.find(k)
+	var zeroVal Item[K, V]
+
+	if found {
+		node.items[idx].value = v
+		return zeroVal, nil, false
+	}
+
+	var promotedItem Item[K, V]
+	var splitNode *Node[K, V]
+	var promoted bool
+	if len(node.children) != 0 {
+		promotedItem, splitNode, promoted = btree.insert(k, v, node.children[idx])
+		if !promoted {
+			return promotedItem, splitNode, promoted
+		}
+	} else {
+		node.items.insertAt(k, v, idx)
+		if len(node.items) < btree.maxItems() {
+			return zeroVal, nil, false
+		}
+		promotedItem, splitNode = btree.split(node)
+		return promotedItem, splitNode, true
+	}
+
+	node.items.insertAt(promotedItem.key, promotedItem.value, idx)
+	node.children.insertAt(splitNode, idx+1)
+	if len(node.items) < btree.maxItems() {
+		return zeroVal, nil, false
+	}
+	promotedItem, splitNode = btree.split(node)
+	return promotedItem, splitNode, true
 
 }
