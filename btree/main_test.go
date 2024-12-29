@@ -172,7 +172,7 @@ func TestBTreeRandomInserts(t *testing.T) {
 		t.Run("Random inserts", func(t *testing.T) {
 
 			for _, test := range randomInputs {
-				btree.Add(test.key, test.value)
+				btree.Insert(test.key, test.value)
 				btree.checkTreeValid(btree.root, t)
 				btree.hasValidDepth(t)
 

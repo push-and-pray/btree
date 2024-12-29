@@ -88,7 +88,7 @@ func (btree *BTree[K, V]) split(n *Node[K, V]) (Item[K, V], *Node[K, V]) {
 	return splitItem, newNode
 }
 
-func (btree *BTree[K, V]) add(k K, v V, n *Node[K, V]) {
+func (btree *BTree[K, V]) insert(k K, v V, n *Node[K, V]) {
 	idx, found := n.items.find(k)
 
 	if found {
@@ -120,10 +120,10 @@ func (btree *BTree[K, V]) add(k K, v V, n *Node[K, V]) {
 		}
 
 	}
-	btree.add(k, v, n.children[idx])
+	btree.insert(k, v, n.children[idx])
 }
 
-func (btree *BTree[K, V]) Add(k K, v V) {
+func (btree *BTree[K, V]) Insert(k K, v V) {
 
 	if btree.root == nil {
 		btree.root = btree.newNode()
@@ -139,6 +139,6 @@ func (btree *BTree[K, V]) Add(k K, v V) {
 		btree.root.children = append(btree.root.children, oldRoot, newNode)
 	}
 
-	btree.add(k, v, btree.root)
+	btree.insert(k, v, btree.root)
 
 }
