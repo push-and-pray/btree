@@ -61,88 +61,7 @@ func (btree *BTree[K, V]) _hasValidDepth(node *Node[K, V], depth int, leafDepth 
 func (btree *BTree[K, V]) hasValidDepth(t *testing.T) {
 	leafDepth := -1
 	if !btree._hasValidDepth(btree.root, 0, &leafDepth) {
-		t.Errorf("BTree does not have a valid depth")
-	}
-}
-
-func newPopulatedBTree() *BTree[int, string] {
-
-	layer_3_1 := &Node[int, string]{
-		items: []Item[int, string]{{59, "59"}, {61, "61"}},
-	}
-	layer_3_2 := &Node[int, string]{
-		items: []Item[int, string]{{71, "71"}, {79, "79"}, {83, "83"}},
-	}
-	layer_3_3 := &Node[int, string]{
-		items: []Item[int, string]{{97, "97"}, {101, "101"}},
-	}
-
-	layer_2_1 := &Node[int, string]{
-		items: []Item[int, string]{{5, "5"}, {7, "7"}},
-	}
-	layer_2_2 := &Node[int, string]{
-		items: []Item[int, string]{{17, "17"}, {23, "23"}},
-	}
-	layer_2_3 := &Node[int, string]{
-		items: []Item[int, string]{{31, "31"}, {37, "37"}},
-	}
-
-	layer_1_0 := &Node[int, string]{
-		items:    []Item[int, string]{{11, "11"}, {29, "29"}},
-		children: []*Node[int, string]{layer_2_1, layer_2_2, layer_2_3},
-	}
-	layer_1_1 := &Node[int, string]{
-		items:    []Item[int, string]{{67, "67"}, {89, "89"}},
-		children: []*Node[int, string]{layer_3_1, layer_3_2, layer_3_3},
-	}
-
-	root := &Node[int, string]{
-		items:    []Item[int, string]{{43, "43"}},
-		children: []*Node[int, string]{layer_1_0, layer_1_1},
-	}
-
-	return &BTree[int, string]{degree: 3, root: root}
-
-}
-
-func TestBTreeGet(t *testing.T) {
-	btree := newPopulatedBTree()
-
-	tests := []struct {
-		key              int
-		expected_val     string
-		expected_success bool
-	}{
-		{5, "5", true},
-		{7, "7", true},
-		{17, "17", true},
-		{23, "23", true},
-		{31, "31", true},
-		{37, "37", true},
-		{43, "43", true},
-		{59, "59", true},
-		{61, "61", true},
-		{67, "67", true},
-		{71, "71", true},
-		{79, "79", true},
-		{83, "83", true},
-		{89, "89", true},
-		{97, "97", true},
-		{101, "101", true},
-		{696969, "", false},
-		{1, "", false},
-		{72, "", false},
-	}
-
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("Get(%d)", test.key), func(t *testing.T) {
-			result, success := btree.Get(test.key)
-			if result != test.expected_val || success != test.expected_success {
-				t.Errorf("expected %s and %t, got %s and %t", test.expected_val, test.expected_success, result, success)
-			}
-			btree.checkTreeValid(btree.root, t)
-			btree.hasValidDepth(t)
-		})
+		t.Fatalf("BTree does not have a valid depth")
 	}
 }
 
@@ -169,7 +88,7 @@ func TestBTreeRandomInserts(t *testing.T) {
 	for i := 2; i < 10; i++ {
 
 		btree := NewBtree[int, string](i)
-		t.Run("Random inserts", func(t *testing.T) {
+		t.Run(fmt.Sprintf("Random inserts degree %v", i), func(t *testing.T) {
 
 			for _, test := range randomInputs {
 				btree.Insert(test.key, test.value)
@@ -187,55 +106,103 @@ func TestBTreeRandomInserts(t *testing.T) {
 		})
 	}
 }
+func TestBTreeGet(t *testing.T) {
+	for d := 2; d < 10; d++ {
+		btree := NewBtree[int, string](d)
 
-func BenchmarkBTreeGetLayer1(b *testing.B) {
-	btree := newPopulatedBTree()
-
-	keys := []int{43}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, key := range keys {
-			btree.Get(key)
+		for i := range 50 {
+			if i == 25 {
+				continue
+			}
+			btree.Insert(i, strconv.Itoa(i))
 		}
+
+		tests := []struct {
+			key      int
+			expected string
+			found    bool
+		}{
+			{0, "0", true},
+			{49, "49", true},
+			{22, "22", true},
+			{-1, "", false},
+			{50, "", false},
+			{25, "", false},
+		}
+
+		t.Run(fmt.Sprintf("Get at degree %v", d), func(t *testing.T) {
+			for _, test := range tests {
+				val, found := btree.Get(test.key)
+				if found != test.found {
+					t.Errorf("Get(%d) found = %v; want %v", test.key, found, test.found)
+				}
+				if found && val != test.expected {
+					t.Errorf("Get(%d) = %v; want %v", test.key, val, test.expected)
+				}
+				btree.checkTreeValid(btree.root, t)
+				btree.hasValidDepth(t)
+
+			}
+		})
 	}
 }
 
-func BenchmarkBTreeGetLayer2(b *testing.B) {
-	btree := newPopulatedBTree()
+func BenchmarkBTreeManyInserts(b *testing.B) {
+	r := rand.NewPCG(424242, 1024)
+	random := rand.New(r)
+	randomInserts := 10000
+	type testInput struct {
+		key   int
+		value string
+	}
+	randomInputs := make([]testInput, 0, randomInserts)
+	for range randomInserts {
+		randomInputs = append(randomInputs, testInput{random.IntN(100), strconv.Itoa(random.IntN(100))})
+	}
 
-	keys := []int{11, 29, 67, 89}
+	for d := 2; d < 10; d++ {
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, key := range keys {
-			btree.Get(key)
-		}
+		b.Run(fmt.Sprintf("%vInsertsAtD%v", randomInserts, d), func(b *testing.B) {
+			for range b.N {
+				b.StopTimer()
+				t := NewBtree[int, string](d)
+				b.StartTimer()
+				for _, input := range randomInputs {
+					t.Insert(input.key, input.value)
+
+				}
+			}
+		})
+
 	}
 }
 
-func BenchmarkBTreeGetLayer3(b *testing.B) {
-	btree := newPopulatedBTree()
-
-	keys := []int{5, 7, 17, 23, 31, 37, 59, 61, 71, 79, 83, 97, 101}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, key := range keys {
-			btree.Get(key)
-		}
+func BenchmarkBTreeGet(b *testing.B) {
+	r := rand.NewPCG(424242, 1024)
+	random := rand.New(r)
+	randomInserts := 10000
+	type testInput struct {
+		key   int
+		value string
 	}
-}
+	randomInputs := make([]testInput, 0, randomInserts)
+	for range randomInserts {
+		randomInputs = append(randomInputs, testInput{random.IntN(randomInserts / 10), strconv.Itoa(random.IntN(randomInserts / 10))})
+	}
 
-func BenchmarkBTreeGetNonExisting(b *testing.B) {
-	btree := newPopulatedBTree()
-
-	keys := []int{696969, 1, 72}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for _, key := range keys {
-			btree.Get(key)
+	for d := 2; d < 10; d++ {
+		t := NewBtree[int, string](d)
+		for _, input := range randomInputs {
+			t.Insert(input.key, input.value)
 		}
+
+		b.Run(fmt.Sprintf("Get%vAtD%v", randomInserts, d), func(b *testing.B) {
+			for range b.N {
+				for _, input := range randomInputs {
+					t.Get(input.key)
+				}
+			}
+		})
+
 	}
 }

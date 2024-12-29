@@ -70,9 +70,6 @@ func (btree *BTree[K, V]) get(k K, root *Node[K, V]) (V, bool) {
 }
 
 func (btree *BTree[K, V]) split(n *Node[K, V]) (Item[K, V], *Node[K, V]) {
-	if len(n.items) < btree.maxItems() {
-		panic("Tried to split non full node")
-	}
 	median := len(n.items) / 2
 
 	splitItem := n.items[median]
