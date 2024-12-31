@@ -18,7 +18,7 @@ func (btree *BTree[K, V]) maxItems() int {
 }
 
 func (btree *BTree[K, V]) maxChildren() int {
-	return btree.maxItems() + 1
+	return btree.degree * 2
 }
 
 type children[K cmp.Ordered, V any] []*Node[K, V]
@@ -31,6 +31,10 @@ func (node *Node[K, V]) hasValidKeyChildRatio() bool {
 	return len(node.items)+1 == len(node.children)
 }
 
+func (node *Node[K, V]) isLeaf() bool {
+	return len(node.children) == 0
+}
+
 type items[K cmp.Ordered, V any] []Item[K, V]
 type Item[K cmp.Ordered, V any] struct {
 	key   K
@@ -38,6 +42,9 @@ type Item[K cmp.Ordered, V any] struct {
 }
 
 func NewBtree[K cmp.Ordered, V any](degree int) *BTree[K, V] {
+	if degree < 2 {
+		panic("Invalid degree. Must be larger than 1")
+	}
 	bt := BTree[K, V]{degree: degree}
 	return &bt
 }
@@ -139,3 +146,147 @@ func (btree *BTree[K, V]) insert(k K, v V, node *Node[K, V]) (Item[K, V], *Node[
 	return promotedItem, splitNode, true
 
 }
+
+func (btree *BTree[K, V]) Delete(k K) bool {
+	root := btree.root
+	if root == nil {
+		return false
+	}
+	return btree.delete(k, btree.root)
+}
+
+func (btree *BTree[K, V]) delete(k K, node *Node[K, V]) bool {
+	idx, found := node.items.find(k)
+	if found {
+		if node.isLeaf() {
+			node.items.deleteAt(idx)
+			return true
+		}
+
+		if predecessors := node.children[idx]; len(predecessors.items) > btree.minItems() {
+			promotedItem := predecessors.items[len(predecessors.items)-1]
+			btree.delete(promotedItem.key, predecessors)
+			node.items.deleteAt(idx)
+			node.items.insertAt(promotedItem.key, promotedItem.value, idx)
+		} else if succesors := node.children[idx+1]; len(succesors.items) > btree.minItems() {
+			promotedItem := succesors.items[0]
+			btree.delete(promotedItem.key, succesors)
+			node.items.deleteAt(idx)
+			node.items.insertAt(promotedItem.key, promotedItem.value, idx)
+		} else {
+			// TODO: Check if node has mutiple keys
+			predecessors.items = append(predecessors.items, node.items[idx])
+			predecessors.items = append(predecessors.items, succesors.items...)
+
+			if !predecessors.isLeaf() {
+				predecessors.children = append(predecessors.children, succesors.children...)
+			}
+			deletedItem := node.items.deleteAt(idx)
+			node.children.deleteAt(idx + 1)
+			btree.delete(deletedItem.key, predecessors)
+		}
+
+		return true
+	}
+
+	if node.isLeaf() {
+		return false
+	}
+
+	child := node.children[idx]
+	if len(child.items) > btree.minItems() {
+		return btree.delete(k, child)
+	}
+
+	hasLeftSibling := idx > 0
+	hasRightSibling := idx < len(node.children)-1
+
+	if hasLeftSibling && len(node.children[idx-1].items) > btree.minItems() {
+		sibling := node.children[idx-1]
+		demotedItem := node.items[idx-1]
+		child.items.insertAt(demotedItem.key, demotedItem.value, 0)
+		if !sibling.isLeaf() {
+			siblingChild := sibling.children.deleteAt(len(sibling.children) - 1)
+			child.children.insertAt(siblingChild, 0)
+		}
+		promotedItem := sibling.items.deleteAt(len(sibling.items) - 1)
+		node.items[idx-1] = promotedItem
+	} else if hasRightSibling && len(node.children[idx+1].items) > btree.minItems() {
+		sibling := node.children[idx+1]
+		child.items = append(child.items, node.items[idx])
+		if !child.isLeaf() {
+			child.children = append(child.children, sibling.children.deleteAt(0))
+		}
+		node.items[idx] = sibling.items.deleteAt(0)
+
+	} else {
+		if hasRightSibling {
+			node.merge(idx)
+		} else {
+			node.merge(idx - 1)
+		}
+
+	}
+
+	return btree.delete(k, child)
+
+}
+
+func (node *Node[K, V]) merge(i int) {
+	child, sibling := node.children[i], node.children[i+1]
+
+	child.items = append(child.items, node.items.deleteAt(i))
+	child.items = append(child.items, sibling.items...)
+
+	if !child.isLeaf() {
+		child.children = append(child.children, sibling.children...)
+	}
+	node.children.deleteAt(i + 1)
+
+}
+
+/*
+	// Handle child leaf underflow
+	if traversedChild.isLeaf() {
+		hasLeftSibling := idx > 0
+		hasRightSibling := idx < len(node.children)-1
+
+		if hasLeftSibling && len(node.children[idx-1].items) > btree.minItems() {
+			leftSibling := node.children[idx-1]
+			demotedItem := node.items.deleteAt(idx - 1)
+			promotedItem := leftSibling.items.deleteAt(len(leftSibling.items) - 1)
+
+			traversedChild.items.insertAt(demotedItem.key, demotedItem.value, 0)
+			node.items.insertAt(promotedItem.key, promotedItem.value, idx-1)
+			return true
+		} else if hasRightSibling && len(node.children[idx+1].items) > btree.minItems() {
+			rightSibling := node.children[idx+1]
+			demotedItem := node.items.deleteAt(idx)
+			promotedItem := rightSibling.items.deleteAt(0)
+
+			traversedChild.items.insertAt(demotedItem.key, demotedItem.value, len(traversedChild.items))
+			node.items.insertAt(promotedItem.key, promotedItem.value, idx)
+			return true
+		}
+
+		if hasLeftSibling {
+			leftSibling := node.children[idx-1]
+			demotedItem := node.items.deleteAt(idx - 1)
+			leftSibling.items = append(leftSibling.items, demotedItem)
+			leftSibling.items = append(leftSibling.items, traversedChild.items...)
+			node.children.deleteAt(idx)
+			return true
+		} else if hasRightSibling {
+			rightSibling := node.children[idx+1]
+			demotedItem := node.items.deleteAt(idx)
+			traversedChild.items = append(traversedChild.items, demotedItem)
+			traversedChild.items = append(traversedChild.items, rightSibling.items...)
+			node.children.deleteAt(idx + 1)
+			return true
+		}
+		panic("something be wrong")
+	}
+
+	// Handle internal node underflow
+	panic("asd")
+*/

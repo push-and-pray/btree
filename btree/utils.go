@@ -40,12 +40,16 @@ func (s *children[K, V]) insertAt(node *Node[K, V], i int) {
 	(*s)[i] = node
 }
 
-func (s *items[K, V]) deleteAt(i int) {
+func (s *items[K, V]) deleteAt(i int) Item[K, V] {
+	item := (*s)[i]
 	*s = append((*s)[:i], (*s)[i+1:]...)
+	return item
 }
 
-func (s *children[K, V]) deleteAt(i int) {
+func (s *children[K, V]) deleteAt(i int) *Node[K, V] {
+	child := (*s)[i]
 	*s = append((*s)[:i], (*s)[i+1:]...)
+	return child
 }
 
 func (btree *BTree[K, V]) String() string {
