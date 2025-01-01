@@ -9,7 +9,10 @@ import (
 	"testing"
 )
 
-func (btree *BTree[K, V]) checkTreeValid(node *Node[K, V], t *testing.T) {
+func (btree *BTree[K, V]) checkTreeValid(node *Node[K, V], t *testing.T) bool {
+	if node == nil {
+		return true
+	}
 	isLeaf := len(node.children) == 0
 	isRoot := btree.root == node
 

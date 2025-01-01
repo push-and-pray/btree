@@ -73,6 +73,10 @@ func (btree *BTree[K, V]) newNode() *Node[K, V] {
 }
 
 func (btree *BTree[K, V]) Get(k K) (V, bool) {
+	if btree.root == nil {
+		var zeroVal V
+		return zeroVal, false
+	}
 	return btree.get(k, btree.root)
 }
 
@@ -168,7 +172,17 @@ func (btree *BTree[K, V]) Delete(k K) bool {
 	if root == nil {
 		return false
 	}
-	return btree.delete(k, btree.root)
+	found := btree.delete(k, root)
+
+	if len(root.items) == 0 {
+		if root.isLeaf() {
+			btree.root = nil
+		} else {
+			btree.root = root.children[0]
+		}
+	}
+
+	return found
 }
 
 func (btree *BTree[K, V]) delete(k K, node *Node[K, V]) bool {
