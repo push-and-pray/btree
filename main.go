@@ -9,52 +9,52 @@ type BTree[K cmp.Ordered, V any] struct {
 	root   *Node[K, V]
 }
 
-func (btree *BTree[K, V]) minItems() int {
-	return btree.degree - 1
-}
-
-func (btree *BTree[K, V]) maxItems() int {
-	return btree.degree*2 - 1
-}
-
-func (btree *BTree[K, V]) maxChildren() int {
-	return btree.degree * 2
-}
-
-type children[K cmp.Ordered, V any] []*Node[K, V]
 type Node[K cmp.Ordered, V any] struct {
 	children children[K, V]
 	items    items[K, V]
 }
+type children[K cmp.Ordered, V any] []*Node[K, V]
 
-func (node *Node[K, V]) hasValidKeyChildRatio() bool {
-	return len(node.items)+1 == len(node.children)
+type Item[K cmp.Ordered, V any] struct {
+	key   K
+	value V
+}
+type items[K cmp.Ordered, V any] []Item[K, V]
+
+func (t *BTree[K, V]) minItems() int {
+	return t.degree - 1
 }
 
-func (node *Node[K, V]) isLeaf() bool {
-	return len(node.children) == 0
+func (t *BTree[K, V]) maxItems() int {
+	return t.degree*2 - 1
 }
 
-func (node *Node[K, V]) getSuccesor(idx int) Item[K, V] {
-	current := node.children[idx+1]
+func (t *BTree[K, V]) maxChildren() int {
+	return t.degree * 2
+}
+
+func (n *Node[K, V]) hasValidKeyChildRatio() bool {
+	return len(n.items)+1 == len(n.children)
+}
+
+func (n *Node[K, V]) isLeaf() bool {
+	return len(n.children) == 0
+}
+
+func (n *Node[K, V]) getSuccesor(i int) Item[K, V] {
+	current := n.children[i+1]
 	for !current.isLeaf() {
 		current = current.children[0]
 	}
 	return current.items[0]
 }
 
-func (node *Node[K, V]) getPredecessor(idx int) Item[K, V] {
-	current := node.children[idx]
+func (n *Node[K, V]) getPredecessor(i int) Item[K, V] {
+	current := n.children[i]
 	for !current.isLeaf() {
 		current = current.children[len(current.children)-1]
 	}
 	return current.items[len(current.items)-1]
-}
-
-type items[K cmp.Ordered, V any] []Item[K, V]
-type Item[K cmp.Ordered, V any] struct {
-	key   K
-	value V
 }
 
 func NewBtree[K cmp.Ordered, V any](degree int) *BTree[K, V] {
@@ -65,211 +65,256 @@ func NewBtree[K cmp.Ordered, V any](degree int) *BTree[K, V] {
 	return &bt
 }
 
-func (btree *BTree[K, V]) newNode() *Node[K, V] {
+func (t *BTree[K, V]) newNode() *Node[K, V] {
 	return &Node[K, V]{
-		children: make([]*Node[K, V], 0, btree.maxChildren()),
-		items:    make([]Item[K, V], 0, btree.maxItems()),
+		children: make([]*Node[K, V], 0, t.maxChildren()),
+		items:    make([]Item[K, V], 0, t.maxItems()),
 	}
 }
 
-func (btree *BTree[K, V]) Get(k K) (V, bool) {
-	if btree.root == nil {
+/*
+Attempt to get item with key k. Success is indicated by returned bool
+*/
+func (t *BTree[K, V]) Get(k K) (V, bool) {
+	if t.root == nil {
 		var zeroVal V
 		return zeroVal, false
 	}
-	return btree.get(k, btree.root)
+	item, found := t.get(k, t.root)
+	return item.value, found
 }
 
-func (btree *BTree[K, V]) get(k K, root *Node[K, V]) (V, bool) {
-	idx, found := root.items.find(k)
+/*
+Attempt to get item with key k from subtree rooted at n. Success is indicated by returned bool
+*/
+func (t *BTree[K, V]) get(k K, n *Node[K, V]) (Item[K, V], bool) {
+	idx, found := n.items.find(k)
 
 	if found {
-		return root.items[idx].value, true
+		return n.items[idx], true
 	}
 
-	if len(root.children) == 0 {
-		var zeroVal V
+	if n.isLeaf() {
+		var zeroVal Item[K, V]
 		return zeroVal, false
 	}
 
-	return btree.get(k, root.children[idx])
+	return t.get(k, n.children[idx])
 
 }
 
-func (btree *BTree[K, V]) split(n *Node[K, V]) (Item[K, V], *Node[K, V]) {
+/*
+Splits a node n. Returns the promoted item and the new node
+*/
+func (t *BTree[K, V]) split(n *Node[K, V]) (Item[K, V], *Node[K, V]) {
 	median := len(n.items) / 2
 
-	splitItem := n.items[median]
-	newNode := btree.newNode()
+	promotedItem := n.items[median]
+	newNode := t.newNode()
 	newNode.items = append(newNode.items, n.items[median+1:]...)
 	n.items = n.items[:median]
 
-	if len(n.children) > 0 {
+	if !n.isLeaf() {
 		newNode.children = append(newNode.children, n.children[median+1:]...)
 		n.children = n.children[:median+1]
 	}
 
-	return splitItem, newNode
+	return promotedItem, newNode
 }
 
-func (btree *BTree[K, V]) Insert(k K, v V) {
-	if btree.root == nil {
-		btree.root = btree.newNode()
-		btree.root.items = append(btree.root.items, Item[K, V]{k, v})
+/*
+Insert key,value pair into btree
+*/
+func (t *BTree[K, V]) Insert(k K, v V) {
+	// Initialize btree if required
+	if t.root == nil {
+		t.root = t.newNode()
+		t.root.items = append(t.root.items, Item[K, V]{k, v})
 		return
 	}
 
-	promotedItem, splitNode, promoted := btree.insert(k, v, btree.root)
+	promotedItem, splitNode, promoted := t.insert(k, v, t.root)
 	if !promoted {
 		return
 	}
+	// If insertion into root resulted in a promotion, we must grow the
+	// tree taller
 
-	newRoot := btree.newNode()
+	newRoot := t.newNode()
 	newRoot.items = append(newRoot.items, promotedItem)
-	newRoot.children = append(newRoot.children, btree.root, splitNode)
-	btree.root = newRoot
+	newRoot.children = append(newRoot.children, t.root, splitNode)
+	t.root = newRoot
 
 }
 
-func (btree *BTree[K, V]) insert(k K, v V, node *Node[K, V]) (Item[K, V], *Node[K, V], bool) {
-	idx, found := node.items.find(k)
+/*
+Insert key, value pair into subtree rooted at n. Returns information regarding if
+the insertion resulted in a promotion, which the caller must handle
+*/
+func (t *BTree[K, V]) insert(k K, v V, n *Node[K, V]) (Item[K, V], *Node[K, V], bool) {
 	var zeroVal Item[K, V]
+	idx, found := n.items.find(k)
 
+	// If the key already exists, replace it
 	if found {
-		node.items[idx].value = v
+		n.items[idx].value = v
 		return zeroVal, nil, false
 	}
 
-	var promotedItem Item[K, V]
-	var splitNode *Node[K, V]
-	var promoted bool
-	if len(node.children) != 0 {
-		promotedItem, splitNode, promoted = btree.insert(k, v, node.children[idx])
-		if !promoted {
-			return promotedItem, splitNode, promoted
-		}
-	} else {
-		node.items.insertAt(k, v, idx)
-		if len(node.items) < btree.maxItems() {
+	if n.isLeaf() {
+		n.items.insertAt(k, v, idx)
+		if len(n.items) < t.maxItems() {
 			return zeroVal, nil, false
 		}
-		promotedItem, splitNode = btree.split(node)
+		promotedItem, splitNode := t.split(n)
 		return promotedItem, splitNode, true
 	}
 
-	node.items.insertAt(promotedItem.key, promotedItem.value, idx)
-	node.children.insertAt(splitNode, idx+1)
-	if len(node.items) < btree.maxItems() {
+	promotedItem, splitNode, promoted := t.insert(k, v, n.children[idx])
+	if !promoted {
+		return promotedItem, splitNode, promoted
+	}
+
+	// Handler promotion, split if necessary
+	n.items.insertAt(promotedItem.key, promotedItem.value, idx)
+	n.children.insertAt(splitNode, idx+1)
+	if len(n.items) < t.maxItems() {
 		return zeroVal, nil, false
 	}
-	promotedItem, splitNode = btree.split(node)
+	promotedItem, splitNode = t.split(n)
 	return promotedItem, splitNode, true
 
 }
 
-func (btree *BTree[K, V]) Delete(k K) bool {
-	root := btree.root
-	if root == nil {
+/*
+Delete item with key k from btree. Returns whether the key was found
+*/
+func (t *BTree[K, V]) Delete(k K) bool {
+
+	if t.root == nil {
 		return false
 	}
-	found := btree.delete(k, root)
 
-	if len(root.items) == 0 {
-		if root.isLeaf() {
-			btree.root = nil
+	found := t.delete(k, t.root)
+	if !found {
+		return false
+	}
+
+	// Handle shrinking of btree
+	if len(t.root.items) == 0 {
+		if t.root.isLeaf() {
+			t.root = nil
 		} else {
-			btree.root = root.children[0]
+			t.root = t.root.children[0]
 		}
 	}
 
-	return found
+	return true
 }
 
-func (btree *BTree[K, V]) delete(k K, node *Node[K, V]) bool {
-	idx, found := node.items.find(k)
+/*
+Delete item with key k from subtree rooted at n. Returns whether key was found
+*/
+func (t *BTree[K, V]) delete(k K, n *Node[K, V]) bool {
+	idx, found := n.items.find(k)
 	if found {
-		if node.isLeaf() {
-			node.items.deleteAt(idx)
+		if n.isLeaf() {
+			n.items.deleteAt(idx)
 			return true
 		}
 
-		if predecessors := node.children[idx]; len(predecessors.items) > btree.minItems() {
-			predecessor := node.getPredecessor(idx)
-			node.items[idx] = predecessor
-			btree.delete(predecessor.key, predecessors)
-		} else if succesors := node.children[idx+1]; len(succesors.items) > btree.minItems() {
-			succesor := node.getSuccesor(idx)
-			node.items[idx] = succesor
-			btree.delete(succesor.key, succesors)
-		} else {
-			predecessors.items = append(predecessors.items, node.items[idx])
-			predecessors.items = append(predecessors.items, succesors.items...)
+		// Deletion from internal nodes are split into three cases
 
-			if !predecessors.isLeaf() {
-				predecessors.children = append(predecessors.children, succesors.children...)
-			}
-			deletedItem := node.items.deleteAt(idx)
-			node.children.deleteAt(idx + 1)
-			btree.delete(deletedItem.key, predecessors)
+		// If the left child has enough items, we will replace the
+		// key which its predecessor. The same can be possible for
+		// The right child. If neither of them have enough, we must merge
+		if leftChild := n.children[idx]; len(leftChild.items) > t.minItems() {
+			predecessor := n.getPredecessor(idx)
+			n.items[idx] = predecessor
+			t.delete(predecessor.key, leftChild)
+		} else if rightChild := n.children[idx+1]; len(rightChild.items) > t.minItems() {
+			succesor := n.getSuccesor(idx)
+			n.items[idx] = succesor
+			t.delete(succesor.key, rightChild)
+		} else {
+			n.merge(idx)
+			t.delete(k, leftChild)
+
 		}
 
 		return true
 	}
 
-	if node.isLeaf() {
+	// If we are at a leaf, and we still havent found the key, it is not here
+	if n.isLeaf() {
 		return false
 	}
 
-	child := node.children[idx]
-	if len(child.items) > btree.minItems() {
-		return btree.delete(k, child)
+	// Recurse further, ensuring that every child we recurse into
+	// has more than minimum amount of items
+	child := n.children[idx]
+	if len(child.items) > t.minItems() {
+		return t.delete(k, child)
 	}
 
 	hasLeftSibling := idx > 0
-	hasRightSibling := idx < len(node.children)-1
+	hasRightSibling := idx < len(n.children)-1
 
-	if hasLeftSibling && len(node.children[idx-1].items) > btree.minItems() {
-		sibling := node.children[idx-1]
-		demotedItem := node.items[idx-1]
-		child.items.insertAt(demotedItem.key, demotedItem.value, 0)
-		if !sibling.isLeaf() {
-			siblingChild := sibling.children.deleteAt(len(sibling.children) - 1)
-			child.children.insertAt(siblingChild, 0)
-		}
-		promotedItem := sibling.items.deleteAt(len(sibling.items) - 1)
-		node.items[idx-1] = promotedItem
-	} else if hasRightSibling && len(node.children[idx+1].items) > btree.minItems() {
-		sibling := node.children[idx+1]
-		child.items = append(child.items, node.items[idx])
-		if !child.isLeaf() {
-			child.children = append(child.children, sibling.children.deleteAt(0))
-		}
-		node.items[idx] = sibling.items.deleteAt(0)
-
+	if hasLeftSibling && len(n.children[idx-1].items) > t.minItems() {
+		n.stealFromLeftSibling(idx)
+	} else if hasRightSibling && len(n.children[idx+1].items) > t.minItems() {
+		n.stealFromRightSibling(idx)
 	} else {
 		if hasRightSibling {
-			node.merge(idx)
-			return btree.delete(k, child)
+			n.merge(idx)
 		} else {
-			node.merge(idx - 1)
-			return btree.delete(k, node.children[idx-1])
+			n.merge(idx - 1)
+			// We have merged our old target into its left sibling and must change course
+			child = n.children[idx-1]
 		}
 
 	}
 
-	return btree.delete(k, child)
+	return t.delete(k, child)
 
 }
 
-func (node *Node[K, V]) merge(i int) {
-	child, sibling := node.children[i], node.children[i+1]
+// Steals an item from the left sibling of child at index i of node n
+func (n *Node[K, V]) stealFromLeftSibling(i int) {
+	child, sibling := n.children[i], n.children[i-1]
+	demotedItem := n.items[i-1]
+	child.items.insertAt(demotedItem.key, demotedItem.value, 0)
+	if !sibling.isLeaf() {
 
-	child.items = append(child.items, node.items.deleteAt(i))
+		siblingChild := sibling.children.deleteAt(len(sibling.children) - 1)
+
+		child.children.insertAt(siblingChild, 0)
+	}
+	promotedItem := sibling.items.deleteAt(len(sibling.items) - 1)
+	n.items[i-1] = promotedItem
+}
+
+// Steals an item from the right sibling of child at index i of node n
+func (n *Node[K, V]) stealFromRightSibling(i int) {
+	child, sibling := n.children[i], n.children[i+1]
+	child.items = append(child.items, n.items[i])
+	if !child.isLeaf() {
+		child.children = append(child.children, sibling.children.deleteAt(0))
+	}
+	n.items[i] = sibling.items.deleteAt(0)
+
+}
+
+// Merge child at index i of node n, with child at index i+1
+func (n *Node[K, V]) merge(i int) {
+	child, sibling := n.children[i], n.children[i+1]
+
+	child.items = append(child.items, n.items.deleteAt(i))
 	child.items = append(child.items, sibling.items...)
 
 	if !child.isLeaf() {
 		child.children = append(child.children, sibling.children...)
 	}
-	node.children.deleteAt(i + 1)
+	n.children.deleteAt(i + 1)
 
 }
