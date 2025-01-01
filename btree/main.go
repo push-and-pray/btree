@@ -202,7 +202,6 @@ func (btree *BTree[K, V]) delete(k K, node *Node[K, V]) bool {
 			node.items[idx] = succesor
 			btree.delete(succesor.key, succesors)
 		} else {
-			// TODO: Check if node has mutiple keys
 			predecessors.items = append(predecessors.items, node.items[idx])
 			predecessors.items = append(predecessors.items, succesors.items...)
 
