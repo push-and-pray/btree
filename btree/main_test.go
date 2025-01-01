@@ -3,6 +3,7 @@ package btree
 import (
 	"cmp"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -195,9 +196,10 @@ func TestBTreeRandomDeletes(t *testing.T) {
 	}
 
 	for i := 2; i < 10; i++ {
-		randomDeletes := 10 * i * 2
 
-		for run := range 10 {
+		randomDeletes := int(math.Pow(float64(i), float64(4)))
+
+		for run := range 100 {
 			randomInputs := make([]testInput, 0, randomDeletes)
 			for range randomDeletes {
 				key := random.IntN(100)
@@ -220,9 +222,6 @@ func TestBTreeRandomDeletes(t *testing.T) {
 
 					_, found := btree.Get(test.key)
 
-					if test.key == 438 {
-						fmt.Println(",")
-					}
 					treeValid := btree.checkTreeValid(btree.root, t)
 					validDepth := btree.hasValidDepth(t)
 					fail := false
