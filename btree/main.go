@@ -35,6 +35,22 @@ func (node *Node[K, V]) isLeaf() bool {
 	return len(node.children) == 0
 }
 
+func (node *Node[K, V]) getSuccesor(idx int) Item[K, V] {
+	current := node.children[idx+1]
+	for !current.isLeaf() {
+		current = current.children[0]
+	}
+	return current.items[0]
+}
+
+func (node *Node[K, V]) getPredecessor(idx int) Item[K, V] {
+	current := node.children[idx]
+	for !current.isLeaf() {
+		current = current.children[len(current.children)-1]
+	}
+	return current.items[len(current.items)-1]
+}
+
 type items[K cmp.Ordered, V any] []Item[K, V]
 type Item[K cmp.Ordered, V any] struct {
 	key   K
@@ -164,15 +180,13 @@ func (btree *BTree[K, V]) delete(k K, node *Node[K, V]) bool {
 		}
 
 		if predecessors := node.children[idx]; len(predecessors.items) > btree.minItems() {
-			promotedItem := predecessors.items[len(predecessors.items)-1]
-			btree.delete(promotedItem.key, predecessors)
-			node.items.deleteAt(idx)
-			node.items.insertAt(promotedItem.key, promotedItem.value, idx)
+			predecessor := node.getPredecessor(idx)
+			node.items[idx] = predecessor
+			btree.delete(predecessor.key, predecessors)
 		} else if succesors := node.children[idx+1]; len(succesors.items) > btree.minItems() {
-			promotedItem := succesors.items[0]
-			btree.delete(promotedItem.key, succesors)
-			node.items.deleteAt(idx)
-			node.items.insertAt(promotedItem.key, promotedItem.value, idx)
+			succesor := node.getSuccesor(idx)
+			node.items[idx] = succesor
+			btree.delete(succesor.key, succesors)
 		} else {
 			// TODO: Check if node has mutiple keys
 			predecessors.items = append(predecessors.items, node.items[idx])
@@ -222,8 +236,10 @@ func (btree *BTree[K, V]) delete(k K, node *Node[K, V]) bool {
 	} else {
 		if hasRightSibling {
 			node.merge(idx)
+			return btree.delete(k, child)
 		} else {
 			node.merge(idx - 1)
+			return btree.delete(k, node.children[idx-1])
 		}
 
 	}
