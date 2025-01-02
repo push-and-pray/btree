@@ -116,58 +116,50 @@ func (t *BTree[K, V]) Insert(k K, v V) {
 		t.root.items = append(t.root.items, Item[K, V]{k, v})
 		return
 	}
-
-	promotedItem, splitNode, promoted := t.insert(k, v, t.root)
-	if !promoted {
-		return
+	if len(t.root.items) >= t.maxItems() {
+		promotedItem, splitNode := t.split(t.root)
+		newRoot := t.newNode()
+		newRoot.items = append(newRoot.items, promotedItem)
+		newRoot.children = append(newRoot.children, t.root, splitNode)
+		t.root = newRoot
 	}
-	// If insertion into root resulted in a promotion, we must grow the
-	// tree taller
 
-	newRoot := t.newNode()
-	newRoot.items = append(newRoot.items, promotedItem)
-	newRoot.children = append(newRoot.children, t.root, splitNode)
-	t.root = newRoot
-
+	t.insert(k, v, t.root)
 }
 
 /*
 Insert key, value pair into subtree rooted at n. Returns information regarding if
 the insertion resulted in a promotion, which the caller must handle
 */
-func (t *BTree[K, V]) insert(k K, v V, n *Node[K, V]) (Item[K, V], *Node[K, V], bool) {
-	var zeroVal Item[K, V]
+func (t *BTree[K, V]) insert(k K, v V, n *Node[K, V]) {
 	idx, found := n.items.find(k)
 
 	// If the key already exists, replace it
 	if found {
 		n.items[idx].value = v
-		return zeroVal, nil, false
+		return
 	}
 
 	if n.isLeaf() {
 		n.items.insertAt(k, v, idx)
-		if len(n.items) < t.maxItems() {
-			return zeroVal, nil, false
+		return
+	}
+
+	next := n.children[idx]
+	if len(next.items) >= t.maxItems() {
+		promotedItem, splitNode := t.split(next)
+		n.items.insertAt(promotedItem.key, promotedItem.value, idx)
+		n.children.insertAt(splitNode, idx+1)
+
+		idx, found = n.items.find(k)
+		if found {
+			n.items[idx].value = v
+			return
 		}
-		promotedItem, splitNode := t.split(n)
-		return promotedItem, splitNode, true
+
 	}
 
-	promotedItem, splitNode, promoted := t.insert(k, v, n.children[idx])
-	if !promoted {
-		return promotedItem, splitNode, promoted
-	}
-
-	// Handler promotion, split if necessary
-	n.items.insertAt(promotedItem.key, promotedItem.value, idx)
-	n.children.insertAt(splitNode, idx+1)
-	if len(n.items) < t.maxItems() {
-		return zeroVal, nil, false
-	}
-	promotedItem, splitNode = t.split(n)
-	return promotedItem, splitNode, true
-
+	t.insert(k, v, n.children[idx])
 }
 
 /*
