@@ -28,8 +28,7 @@ in the slice of items. It shifts the elements at and after index i to the
 right to make space for the new item.
 */
 func (s *items[K, V]) insertAt(k K, v V, i int) {
-	var zeroVal Item[K, V]
-	*s = append(*s, zeroVal)
+	*s = append(*s, Item[K, V]{})
 	copy((*s)[i+1:], (*s)[i:])
 	(*s)[i] = Item[K, V]{k, v}
 }
@@ -42,13 +41,17 @@ func (s *children[K, V]) insertAt(node *Node[K, V], i int) {
 
 func (s *items[K, V]) deleteAt(i int) Item[K, V] {
 	item := (*s)[i]
-	*s = append((*s)[:i], (*s)[i+1:]...)
+	copy((*s)[i:], (*s)[i+1:])
+	(*s)[len(*s)-1] = Item[K, V]{}
+	*s = (*s)[:len(*s)-1]
 	return item
 }
 
 func (s *children[K, V]) deleteAt(i int) *Node[K, V] {
 	child := (*s)[i]
-	*s = append((*s)[:i], (*s)[i+1:]...)
+	copy((*s)[i:], (*s)[i+1:])
+	(*s)[len(*s)-1] = nil
+	*s = (*s)[:len(*s)-1]
 	return child
 }
 
