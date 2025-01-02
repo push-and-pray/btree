@@ -216,6 +216,11 @@ func TestBTreeRandomDeletes(t *testing.T) {
 				t.Log("Starting from this tree:")
 				t.Logf("\n%v", btree.String())
 
+				found := btree.Delete(-1)
+				if found {
+					t.Fatalf("Deleted non-existing key with")
+				}
+
 				for _, test := range randomInputs {
 					t.Logf("Deleting key: %v", test.key)
 					btree.Delete(test.key)
@@ -240,67 +245,12 @@ func TestBTreeRandomDeletes(t *testing.T) {
 						t.Fatal()
 					}
 				}
+
+				found = btree.Delete(-1)
+				if found {
+					t.Fatalf("Deleted non-existing key")
+				}
 			})
 		}
-	}
-}
-
-func BenchmarkBTreeManyInserts(b *testing.B) {
-	r := rand.NewPCG(424242, 1024)
-	random := rand.New(r)
-	randomInserts := 10000
-	type testInput struct {
-		key   int
-		value string
-	}
-	randomInputs := make([]testInput, 0, randomInserts)
-	for range randomInserts {
-		randomInputs = append(randomInputs, testInput{random.IntN(100), strconv.Itoa(random.IntN(100))})
-	}
-
-	for d := 2; d < 10; d++ {
-
-		b.Run(fmt.Sprintf("%vInsertsAtD%v", randomInserts, d), func(b *testing.B) {
-			for range b.N {
-				b.StopTimer()
-				t := NewBtree[int, string](d)
-				b.StartTimer()
-				for _, input := range randomInputs {
-					t.Insert(input.key, input.value)
-
-				}
-			}
-		})
-
-	}
-}
-
-func BenchmarkBTreeGet(b *testing.B) {
-	r := rand.NewPCG(424242, 1024)
-	random := rand.New(r)
-	randomInserts := 10000
-	type testInput struct {
-		key   int
-		value string
-	}
-	randomInputs := make([]testInput, 0, randomInserts)
-	for range randomInserts {
-		randomInputs = append(randomInputs, testInput{random.IntN(randomInserts / 10), strconv.Itoa(random.IntN(randomInserts / 10))})
-	}
-
-	for d := 2; d < 10; d++ {
-		t := NewBtree[int, string](d)
-		for _, input := range randomInputs {
-			t.Insert(input.key, input.value)
-		}
-
-		b.Run(fmt.Sprintf("Get%vAtD%v", randomInserts, d), func(b *testing.B) {
-			for range b.N {
-				for _, input := range randomInputs {
-					t.Get(input.key)
-				}
-			}
-		})
-
 	}
 }
