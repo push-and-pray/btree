@@ -229,9 +229,15 @@ func (t *BTree[K, V]) delete(k K, n *Node[K, V]) bool {
 		// key which its predecessor. The same can be possible for
 		// The right child. If neither of them have enough, we must merge
 		if leftChild := n.children[idx]; len(leftChild.items) > t.minItems() {
-			n.items[idx] = t.popPredecessor(n, idx)
+			if len(leftChild.items) <= t.minItems() {
+				leftChild = t.rebalance(n, idx)
+			}
+			n.items[idx] = t.popMax(leftChild)
 		} else if rightChild := n.children[idx+1]; len(rightChild.items) > t.minItems() {
-			n.items[idx] = t.popSuccesor(n, idx)
+			if len(rightChild.items) <= t.minItems() {
+				rightChild = t.rebalance(n, idx+1)
+			}
+			n.items[idx] = t.popMin(rightChild)
 		} else {
 			n.merge(idx)
 			t.delete(k, leftChild)
@@ -253,18 +259,17 @@ func (t *BTree[K, V]) delete(k K, n *Node[K, V]) bool {
 		return t.delete(k, child)
 	}
 
-	newIdx := t.rebalance(n, idx)
-	if newIdx != idx {
-		child = n.children[newIdx]
-	}
+	child = t.rebalance(n, idx)
 
 	return t.delete(k, child)
 
 }
 
-// Rebalances child at index i of node n. Returns the new index of child
-// as it might have changed due to being merged with left sibling
-func (t *BTree[K, V]) rebalance(n *Node[K, V], i int) int {
+/*
+Rebalances child at index i of node n. Returns a pointer to child i
+or its left sibling, if child i got merged into it
+*/
+func (t *BTree[K, V]) rebalance(n *Node[K, V], i int) *Node[K, V] {
 
 	hasLeftSibling := i > 0
 	hasRightSibling := i < len(n.children)-1
@@ -279,65 +284,42 @@ func (t *BTree[K, V]) rebalance(n *Node[K, V], i int) int {
 		} else {
 			n.merge(i - 1)
 			// We have merged our old target into its left sibling and must change course
-			return i - 1
+			return n.children[i-1]
 		}
 
 	}
-	return i
+	return n.children[i]
 }
 
-func (t *BTree[K, V]) popPredecessor(n *Node[K, V], i int) Item[K, V] {
-	next := n.children[i]
-	if len(next.items) > t.minItems() {
-		return t._popPredecessor(next)
-	}
-	newIdx := t.rebalance(n, i)
-	if newIdx != i {
-		next = n.children[newIdx]
-	}
-	return t._popPredecessor(next)
-}
-
-func (t *BTree[K, V]) _popPredecessor(n *Node[K, V]) Item[K, V] {
+/*
+Pop the max item at the btree rooted at node n, assuming that n has more than min items
+*/
+func (t *BTree[K, V]) popMax(n *Node[K, V]) Item[K, V] {
 	if n.isLeaf() {
 		return n.items.deleteAt(len(n.items) - 1)
 	}
-	nextIdx := len(n.children) - 1
-	next := n.children[nextIdx]
-	if len(next.items) > t.minItems() {
-		return t._popPredecessor(next)
+
+	next := n.children[len(n.children)-1]
+	if len(next.items) <= t.minItems() {
+		next = t.rebalance(n, len(n.children)-1)
 	}
-	newIdx := t.rebalance(n, nextIdx)
-	if newIdx != nextIdx {
-		next = n.children[newIdx]
-	}
-	return t._popPredecessor(next)
+	return t.popMax(next)
 }
 
-func (t *BTree[K, V]) popSuccesor(n *Node[K, V], i int) Item[K, V] {
-	next := n.children[i+1]
-	if len(next.items) > t.minItems() {
-		return t._popSuccesor(next)
-	}
-	newIdx := t.rebalance(n, i)
-	if newIdx != i {
-		next = n.children[newIdx]
-	}
-	return t._popSuccesor(next)
-}
-
-func (t *BTree[K, V]) _popSuccesor(n *Node[K, V]) Item[K, V] {
+/*
+Pop the min item at the btree rooted at node n, assuming that n has more than min items
+*/
+func (t *BTree[K, V]) popMin(n *Node[K, V]) Item[K, V] {
 	if n.isLeaf() {
 		return n.items.deleteAt(0)
 	}
 
-	nextIdx := 0
-	next := n.children[nextIdx]
-	if len(next.items) > t.minItems() {
-		return t._popSuccesor(next)
+	next := n.children[0]
+
+	if len(next.items) <= t.minItems() {
+		next = t.rebalance(n, 0)
 	}
-	t.rebalance(n, nextIdx)
-	return t._popSuccesor(next)
+	return t.popMin(next)
 }
 
 // Steals an item from the left sibling of child at index i of node n
