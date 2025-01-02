@@ -41,22 +41,6 @@ func (n *Node[K, V]) isLeaf() bool {
 	return len(n.children) == 0
 }
 
-func (n *Node[K, V]) getSuccesor(i int) Item[K, V] {
-	current := n.children[i+1]
-	for !current.isLeaf() {
-		current = current.children[0]
-	}
-	return current.items[0]
-}
-
-func (n *Node[K, V]) getPredecessor(i int) Item[K, V] {
-	current := n.children[i]
-	for !current.isLeaf() {
-		current = current.children[len(current.children)-1]
-	}
-	return current.items[len(current.items)-1]
-}
-
 func NewBtree[K cmp.Ordered, V any](degree int) *BTree[K, V] {
 	if degree < 2 {
 		panic("Invalid degree. Must be larger than 1")
