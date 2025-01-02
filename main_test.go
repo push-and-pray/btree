@@ -148,41 +148,53 @@ func TestBTreeRandomInserts(t *testing.T) {
 	r := rand.NewPCG(424242, 1024)
 	random := rand.New(r)
 
-	randomInserts := 100000
-
 	type testInput struct {
 		key   int
 		value string
 	}
 
-	randomInputs := make([]testInput, 0, randomInserts)
-
-	for range randomInserts {
-		key := random.IntN(1000)
-		value := random.IntN(1000)
-		test1 := testInput{key, strconv.Itoa(value)}
-		randomInputs = append(randomInputs, test1)
-	}
-
 	for i := 2; i < 10; i++ {
+		randomInserts := int(math.Pow(float64(i), float64(4)))
 
-		btree := NewBtree[int, string](i)
-		t.Run(fmt.Sprintf("Random inserts degree %v", i), func(t *testing.T) {
-
-			for _, test := range randomInputs {
-				btree.Insert(test.key, test.value)
-				btree.checkTreeValid(btree.root, t)
-				btree.hasValidDepth(t)
-
-				val, found := btree.Get(test.key)
-				if !found {
-					t.Errorf("Key dissapeared, expected: %v, got nothing D:", test.value)
-				}
-				if !(val == test.value) {
-					t.Errorf("Unexpected value returned: expected: %v, got: %v", test.value, val)
-				}
+		for run := range 100 {
+			randomInputs := make([]testInput, 0, randomInserts)
+			for range randomInserts {
+				key := random.IntN(100)
+				value := random.IntN(100)
+				test1 := testInput{key, strconv.Itoa(value)}
+				randomInputs = append(randomInputs, test1)
 			}
-		})
+
+			btree := NewBtree[int, string](i)
+			t.Run(fmt.Sprintf("Random inserts at degree %v #%v", i, run), func(t *testing.T) {
+				for _, test := range randomInputs {
+					btree.Insert(test.key, test.value)
+					t.Logf("State:\n%v", btree.String())
+
+					treeValid := btree.checkTreeValid(btree.root, t)
+					validDepth := btree.hasValidDepth(t)
+					fail := false
+					if !treeValid || !validDepth {
+						fail = true
+						t.Error("Tree is not valid!")
+					}
+
+					val, found := btree.Get(test.key)
+					if !found {
+						fail = true
+						t.Errorf("Key disappeared, expected: %v, got nothing", test.value)
+					}
+					if val != test.value {
+						fail = true
+						t.Errorf("Unexpected value returned: expected: %v, got: %v", test.value, val)
+					}
+
+					if fail {
+						t.Fatal()
+					}
+				}
+			})
+		}
 	}
 }
 
