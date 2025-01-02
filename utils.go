@@ -29,14 +29,18 @@ right to make space for the new item.
 */
 func (s *items[K, V]) insertAt(k K, v V, i int) {
 	*s = append(*s, Item[K, V]{})
-	copy((*s)[i+1:], (*s)[i:])
+	if i < len(*s)-1 {
+		copy((*s)[i+1:], (*s)[i:])
+	}
 	(*s)[i] = Item[K, V]{k, v}
 }
 
-func (s *children[K, V]) insertAt(node *Node[K, V], i int) {
+func (s *children[K, V]) insertAt(n *Node[K, V], i int) {
 	*s = append(*s, nil)
-	copy((*s)[i+1:], (*s)[i:])
-	(*s)[i] = node
+	if i < len(*s)-1 {
+		copy((*s)[i+1:], (*s)[i:])
+	}
+	(*s)[i] = n
 }
 
 func (s *items[K, V]) deleteAt(i int) Item[K, V] {

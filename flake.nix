@@ -13,6 +13,7 @@
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = [
           pkgs.go
+          pkgs.goperf
         ];
       };
     };
