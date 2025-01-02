@@ -151,8 +151,13 @@ func (t *BTree[K, V]) insert(k K, v V, n *Node[K, V]) {
 		n.items.insertAt(promotedItem.key, promotedItem.value, idx)
 		n.children.insertAt(splitNode, idx+1)
 
-		idx, found = n.items.find(k)
-		if found {
+		// The split might change our direction
+		keyInBTree := n.items[idx].key
+		if k < keyInBTree {
+			// Do nothing
+		} else if k > keyInBTree {
+			idx++
+		} else {
 			n.items[idx].value = v
 			return
 		}
